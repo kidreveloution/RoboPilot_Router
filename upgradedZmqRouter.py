@@ -22,7 +22,6 @@ connections = {}
 while True:
     try:
         message = router.recv_multipart()
-        print(f"Received raw message: {message}")
         # Decode each part of the multipart message as UTF-8
         tx_id = message[1].decode('utf-8')
         message_content = message[2].decode('utf-8')
@@ -39,11 +38,13 @@ while True:
             else:
                 # Register the worker with its decoded ID and IP address
                 ip_address = message_data["content"]["ip_address"]
-
-                print(f"Decoded tx_id: {tx_id}, IP: {ip_address}, Content: {message_content}")
                 connections[tx_id] = ip_address
                 content = b"YOU HAVE BEEN REGISTERED"
                 router.send_multipart([tx_id.encode('utf-8'), content])  # Encode the response back to UTF-8
+                try:
+                    router.send_multipart(["MOTHER".encode('utf-8'), content])  # Encode the response back to UTF-8
+                except:
+                    print("MOTHER not registered")
                 print(f"Registered connection: {tx_id} with IP: {ip_address}")
         else:
             if tx_id in connections:
