@@ -47,7 +47,7 @@ while True:
                     print("MOTHER not registered")
                 print(f"Registered connection: {tx_id} with IP: {ip_address}")
         elif message_data["msg_name"] == "getRegister":
-            connections["msg_name"] = "register"
+            connections["msg_name"] = "register_list"
             router.send_multipart(["MOTHER".encode('utf-8'), str(connections).encode('utf-8')])  # Encode the response back to UTF-8
 
         else:
