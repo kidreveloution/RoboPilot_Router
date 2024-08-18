@@ -42,11 +42,13 @@ while True:
                 content = b"YOU HAVE BEEN REGISTERED"
                 router.send_multipart([tx_id.encode('utf-8'), content])  # Encode the response back to UTF-8
                 try:
-                    
                     router.send_multipart(["MOTHER".encode('utf-8'), message_content.encode('utf-8')])  # Encode the response back to UTF-8
                 except:
                     print("MOTHER not registered")
                 print(f"Registered connection: {tx_id} with IP: {ip_address}")
+        elif message_data["msg_name"] == "getRegister":
+            router.send_multipart(["MOTHER".encode('utf-8'), str(connections).encode('utf-8')])  # Encode the response back to UTF-8
+
         else:
             if tx_id in connections:
                 content = message_content.encode('utf-8')
