@@ -2,9 +2,14 @@ import zmq
 import json
 import signal
 import sys
+import time
+import logging
+
+# Set up logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 def signal_handler(sig, frame):
-    print("\nShutting down...")
+    logging.info("Shutting down...")
     router.close()
     context.term()
     sys.exit(0)
@@ -12,56 +17,66 @@ def signal_handler(sig, frame):
 signal.signal(signal.SIGINT, signal_handler)
 
 context = zmq.Context()
-
-# Router socket for routing messages based on tx_id
 router = context.socket(zmq.ROUTER)
 router.bind("tcp://*:5555")
 
 connections = {}
-formatMessage = {}
 
-while True:
-    try:
-        message = router.recv_multipart()
-        # Decode each part of the multipart message as UTF-8
-        tx_id = message[1].decode('utf-8')
-        message_content = message[2].decode('utf-8')
-        message_data = json.loads(message_content)
+def process_message(message):
+    tx_id, message_content = message[1].decode('utf-8'), message[2].decode('utf-8')
+    message_data = json.loads(message_content)
+    rx_id = message_data.get("rx_id")
 
-        rx_id = message_data["rx_id"]
+    logging.info(f"Received message: {message_data}")
 
-        print(message_data)
-        if message_data["msg_name"] == "register":
-            if tx_id in connections:
-                content = b"Already Registered"
-                router.send_multipart([tx_id.encode('utf-8'), content])  # Encode the response back to UTF-8
-                print(f"TX ID {tx_id} is already registered.")
-            else:
-                # Register the worker with its decoded ID and IP address
-                ip_address = message_data["content"]["ip_address"]
-                connections[tx_id] = ip_address
-                content = b"YOU HAVE BEEN REGISTERED"
-                router.send_multipart([tx_id.encode('utf-8'), content])  # Encode the response back to UTF-8
-                try:
-                    router.send_multipart(["MOTHER".encode('utf-8'), message_content.encode('utf-8')])  # Encode the response back to UTF-8
-                except:
-                    print("MOTHER not registered")
-                print(f"Registered connection: {tx_id} with IP: {ip_address}")
-        elif message_data["msg_name"] == "getRegister":
-            formatMessage["msg_name"] = "register_list"
-            formatMessage["content"] = connections
-            #connections["msg_name"] = "register_list"
-            router.send_multipart(["MOTHER".encode('utf-8'), str(formatMessage).encode('utf-8')])  # Encode the response back to UTF-8
+    if message_data["msg_name"] == "register":
+        handle_registration(tx_id, message_data)
+    elif message_data["msg_name"] == "getRegister":
+        handle_get_register()
+    else:
+        handle_regular_message(tx_id, rx_id, message_content)
 
-        else:
-            if tx_id in connections:
-                content = message_content.encode('utf-8')
-                router.send_multipart([rx_id.encode('utf-8'), content])  # Encode the response back to UTF-8
-                print(f"Sent message to receiver {rx_id}")
-            else:
-                print(f"TX ID {tx_id} not recognized.")
+    logging.info(f"Current connections: {connections}")
 
-        print(f"Current connections: {connections}")
-    except Exception as e:
-        print(f"Error occurred: {e}")
+def handle_registration(tx_id, message_data):
+    if tx_id in connections:
+        router.send_multipart([tx_id.encode('utf-8'), b"Already Registered"])
+        logging.info(f"TX ID {tx_id} is already registered.")
+    else:
+        ip_address = message_data["content"]["ip_address"]
+        connections[tx_id] = ip_address
+        router.send_multipart([tx_id.encode('utf-8'), b"YOU HAVE BEEN REGISTERED"])
+        try:
+            router.send_multipart([b"MOTHER", json.dumps(message_data).encode('utf-8')])
+        except zmq.ZMQError:
+            logging.error("MOTHER not registered")
+        logging.info(f"Registered connection: {tx_id} with IP: {ip_address}")
+
+def handle_get_register():
+    format_message = {
+        "msg_name": "register_list",
+        "content": connections
+    }
+    router.send_multipart([b"MOTHER", json.dumps(format_message).encode('utf-8')])
+
+def handle_regular_message(tx_id, rx_id, message_content):
+    if tx_id in connections:
+        router.send_multipart([rx_id.encode('utf-8'), message_content.encode('utf-8')])
+        logging.info(f"Sent message to receiver {rx_id}")
+    else:
+        logging.warning(f"TX ID {tx_id} not recognized.")
+
+def main():
+    while True:
+        try:
+            message = router.recv_multipart(flags=zmq.NOBLOCK)
+            process_message(message)
+        except zmq.Again:
+            time.sleep(0.1)
+        except Exception as e:
+            logging.error(f"Error occurred: {e}")
+            time.sleep(1)
+
+if __name__ == "__main__":
+    main()
 
