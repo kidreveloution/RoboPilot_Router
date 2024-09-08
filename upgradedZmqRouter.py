@@ -18,6 +18,7 @@ router = context.socket(zmq.ROUTER)
 router.bind("tcp://*:5555")
 
 connections = {}
+formatMessage = {}
 
 while True:
     try:
@@ -47,8 +48,10 @@ while True:
                     print("MOTHER not registered")
                 print(f"Registered connection: {tx_id} with IP: {ip_address}")
         elif message_data["msg_name"] == "getRegister":
-            connections["msg_name"] = "register_list"
-            router.send_multipart(["MOTHER".encode('utf-8'), str(connections).encode('utf-8')])  # Encode the response back to UTF-8
+            formatMessage["msg_name"] = "register_list"
+            formatMessage["content"] = connections
+            #connections["msg_name"] = "register_list"
+            router.send_multipart(["MOTHER".encode('utf-8'), str(formatMessage).encode('utf-8')])  # Encode the response back to UTF-8
 
         else:
             if tx_id in connections:
