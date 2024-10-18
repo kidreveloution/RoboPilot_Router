@@ -5,9 +5,16 @@ import sys
 import time
 import logging
 
-# Set up logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
+# Set up logging to write to a file
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    filename='router_logs.log',  # Specify the log file here
+    filemode='a'  # Append mode, change to 'w' for overwrite mode
+)
+
+# Set up logging
 def signal_handler(sig, frame):
     logging.info("Shutting down...")
     router.close()
