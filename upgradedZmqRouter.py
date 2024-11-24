@@ -5,7 +5,6 @@ import sys
 import time
 import logging
 
-
 # Set up logging to write to a file
 logging.basicConfig(
     level=logging.INFO,
@@ -14,9 +13,10 @@ logging.basicConfig(
     filemode='a'  # Append mode, change to 'w' for overwrite mode
 )
 
-# Set up logging
+# Set up signal handler for clean shutdown
 def signal_handler(sig, frame):
     logging.info("Shutting down...")
+    print("Shutting down...")
     router.close()
     context.term()
     sys.exit(0)
@@ -34,7 +34,9 @@ def process_message(message):
     message_data = json.loads(message_content)
     rx_id = message_data.get("rx_id")
 
-    logging.info(f"Received message: {message_data}")
+    log_message = f"Received message: {message_data}"
+    logging.info(log_message)
+    print(log_message)
 
     if message_data["msg_name"] == "register":
         handle_registration(tx_id, message_data)
@@ -43,35 +45,57 @@ def process_message(message):
     else:
         handle_regular_message(tx_id, rx_id, message_content)
 
-    logging.info(f"Current connections: {connections}")
+    log_connections = f"Current connections: {connections}"
+    logging.info(log_connections)
+    print(log_connections)
 
 def handle_registration(tx_id, message_data):
     if tx_id in connections:
-        router.send_multipart([tx_id.encode('utf-8'), b"Already Registered"])
-        logging.info(f"TX ID {tx_id} is already registered.")
+        response = "Already Registered"
+        router.send_multipart([tx_id.encode('utf-8'), response.encode('utf-8')])
+        log_message = f"TX ID {tx_id} is already registered."
+        logging.info(log_message)
+        print(log_message)
     else:
         ip_address = message_data["content"]["ip_address"]
         connections[tx_id] = ip_address
-        router.send_multipart([tx_id.encode('utf-8'), b"YOU HAVE BEEN REGISTERED"])
+        response = "YOU HAVE BEEN REGISTERED"
+        router.send_multipart([tx_id.encode('utf-8'), response.encode('utf-8')])
         try:
             router.send_multipart([b"MOTHER", json.dumps(message_data).encode('utf-8')])
         except zmq.ZMQError:
-            logging.error("MOTHER not registered")
-        logging.info(f"Registered connection: {tx_id} with IP: {ip_address}")
+            log_message = "MOTHER not registered"
+            logging.error(log_message)
+            print(log_message)
+        log_message = f"Registered connection: {tx_id} with IP: {ip_address}"
+        logging.info(log_message)
+        print(log_message)
 
 def handle_get_register():
     format_message = {
         "msg_name": "register_list",
         "content": connections
     }
-    router.send_multipart([b"MOTHER", json.dumps(format_message).encode('utf-8')])
+    try:
+        router.send_multipart([b"MOTHER", json.dumps(format_message).encode('utf-8')])
+        log_message = "Sent register list to MOTHER"
+        logging.info(log_message)
+        print(log_message)
+    except zmq.ZMQError as e:
+        log_message = f"Failed to send register list to MOTHER: {e}"
+        logging.error(log_message)
+        print(log_message)
 
 def handle_regular_message(tx_id, rx_id, message_content):
     if tx_id in connections:
         router.send_multipart([rx_id.encode('utf-8'), message_content.encode('utf-8')])
-        logging.info(f"Sent message to receiver {rx_id}")
+        log_message = f"Sent message to receiver {rx_id}"
+        logging.info(log_message)
+        print(log_message)
     else:
-        logging.warning(f"TX ID {tx_id} not recognized.")
+        log_message = f"TX ID {tx_id} not recognized."
+        logging.warning(log_message)
+        print(log_message)
 
 def main():
     while True:
@@ -81,9 +105,10 @@ def main():
         except zmq.Again:
             time.sleep(0.1)
         except Exception as e:
-            logging.error(f"Error occurred: {e}")
+            log_message = f"Error occurred: {e}"
+            logging.error(log_message)
+            print(log_message)
             time.sleep(1)
 
 if __name__ == "__main__":
     main()
-
